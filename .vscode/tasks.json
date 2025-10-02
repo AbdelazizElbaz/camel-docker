@@ -1,0 +1,125 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start Camel application with Maven Quarkus Dev with camel.debug profile",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "compile",
+                "quarkus:dev",
+                "'-Pcamel.debug'"
+            ],
+            "problemMatcher": "$camel.debug.problemMatcher",
+            "presentation": {
+                "reveal": "always"
+            },
+            "isBackground": true
+        },
+        {
+            "label": "Build a Camel Quarkus application as a Native executable debug-ready",
+            "detail": "This task will build Camel Quarkus application with JMX and Camel Debugger enabled using GraalVM",
+            "type": "shell",
+            "command": "./mvnw",
+            "args": [
+                "install",
+                "-Dnative",
+                "'-Dquarkus.native.monitoring=jmxserver,jmxclient'",
+                "'-Dquarkus.camel.debug.enabled=true'",
+                "'-Pcamel.debug'"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always"
+            }
+        },
+        {
+            "label": "Start Camel native application debug-ready",
+            "detail": "This task will start Camel native application with Maven Quarkus Native and camel.debug profile",
+            "type": "shell",
+            "command": "./target/*-runner",
+            "problemMatcher": "$camel.debug.problemMatcher",
+            "presentation": {
+                "reveal": "always"
+            },
+            "isBackground": true
+        },
+        {
+            "label": "Deploy on OpenShift",
+            "type": "shell",
+            "command": "./mvnw",
+            "args": [
+                "package",
+                "-Dquarkus.kubernetes.deploy=true"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always"
+            }
+        },
+        {
+            "type": "shell",
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "owner": "quarkus",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src/main/resources/templates"
+                    ],
+                    "pattern": [
+                        {
+                            "regexp": "\\[(\\d+)\\]\\s(.*):(\\d+):(\\d+)\\s\\-\\s{(.*)}:\\s(.*)$",
+                            "file": 2,
+                            "line": 3,
+                            "column": 4,
+                            "message": 6
+                        }
+                    ],
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": "^.*Scanning for projects...",
+                        "endsPattern": "(^.*Quarkus .* started in .*\\.)|(^.* ERROR .* Failed to start)"
+                    }
+                }
+            ],
+            "group": "build",
+            "label": "quarkus:dev",
+            "command": "./mvnw quarkus:dev ",
+            "windows": {
+                "command": ".\\mvnw.cmd quarkus:dev "
+            }
+        },
+        {
+            "type": "shell",
+            "isBackground": true,
+            "problemMatcher": [
+                {
+                    "owner": "quarkus",
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src/main/resources/templates"
+                    ],
+                    "pattern": [
+                        {
+                            "regexp": "\\[(\\d+)\\]\\s(.*):(\\d+):(\\d+)\\s\\-\\s{(.*)}:\\s(.*)$",
+                            "file": 2,
+                            "line": 3,
+                            "column": 4,
+                            "message": 6
+                        }
+                    ],
+                    "background": {
+                        "activeOnStart": true
+                    }
+                }
+            ],
+            "group": "build",
+            "label": "package -Pnative",
+            "command": "./mvnw package -Pnative ",
+            "windows": {
+                "command": ".\\mvnw.cmd package -Pnative "
+            }
+        }
+    ]
+}
