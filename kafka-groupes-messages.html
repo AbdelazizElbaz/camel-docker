@@ -19,9 +19,9 @@
   .tab{background:var(--panel);border:1px solid var(--line);color:var(--mut);padding:6px 12px;border-radius:999px;cursor:pointer;font-size:13px}
   .tab.on{color:var(--txt);border-color:#58a6ff;background:#1f2a3a}
   #wrap{flex:1 1 auto;position:relative;overflow:hidden}
-  #stage{position:absolute;left:0;top:0;width:1160px;height:720px;transform-origin:0 0}
+  #stage{position:absolute;left:0;top:0;width:1160px;height:830px;transform-origin:0 0}
   #stage.noanim *{transition:none!important}
-  svg#edges{position:absolute;inset:0;width:1160px;height:720px;overflow:visible}
+  svg#edges{position:absolute;inset:0;width:1160px;height:830px;overflow:visible}
   .edge{fill:none;stroke:#3a4250;stroke-width:2;transition:stroke .4s,stroke-width .4s,opacity .4s}
   .edge.rep{stroke:#5b4a8a;stroke-dasharray:6 5}
   .edge.dlq{stroke:#7a3434;stroke-dasharray:6 5}
@@ -41,6 +41,7 @@
   .lane .grp{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--mut)}
   .lane.susp{background:rgba(239,68,68,.12);border:1px solid var(--err);box-shadow:0 0 18px rgba(239,68,68,.35)}
   .lane.hl{border:1px solid var(--rep);box-shadow:0 0 18px rgba(167,139,250,.4)}
+  .lane.dlq{border:1px solid var(--dlq);box-shadow:0 0 18px rgba(248,113,113,.45);background:rgba(248,113,113,.08)}
   .lane.resumed{border:1px solid var(--ok);box-shadow:0 0 14px rgba(34,197,94,.35)}
   .badge{position:absolute;left:90px;top:-11px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--err);color:#fff;opacity:0;transition:opacity .4s}
   .lane.susp .badge{opacity:1}
@@ -143,14 +144,14 @@
         <h3 style="color:#c4b5fd">② Gestion d'erreur : DLQ + topic de reprise</h3>
         <ul>
           <li>En cas d'erreur, la partition est suspendue et le message reste bloqué (offset non commité).</li>
-          <li>Une copie est envoyée dans la DLQ avec la partition et l'offset d'origine.</li>
-          <li>L'utilisateur corrige le message et le republie dans le topic de reprise, <b>dans la même partition</b>.</li>
+          <li>Une copie est envoyée dans la DLQ, <b>dans la même partition d'origine</b> (P1 → D1), avec l'offset et la cause de l'erreur.</li>
+          <li>L'utilisateur corrige le message et le republie dans le topic de reprise, <b>dans la même partition</b> (D1 → R1).</li>
           <li>Le topic de reprise est consommé en priorité. Ensuite, le message d'origine est ignoré grâce au registre des messages déjà traités, et la partition est débloquée.</li>
         </ul>
       </div>
     </div>
     <div class="fifo">✅ Ordre final du groupe B : <b>B1 → B2′ → B3 → B4</b>. Le FIFO est respecté et les groupes A et C n'ont jamais été bloqués.</div>
-    <div style="margin-top:12px;font-size:12.5px;color:var(--mut)">Points d'attention : le topic de reprise doit avoir le même nombre de partitions que le topic principal · le registre d'idempotence doit être persistant · surveiller la durée de suspension d'une partition (alertes) · prévoir le cas « message non corrigeable » (ignorer explicitement).</div>
+    <div style="margin-top:12px;font-size:12.5px;color:var(--mut)">Points d'attention : la DLQ et le topic de reprise doivent avoir le même nombre de partitions que le topic principal · le registre d'idempotence doit être persistant · surveiller la durée de suspension d'une partition (alertes) · prévoir le cas « message non corrigeable » (ignorer explicitement).</div>
   </div>
 </div></div>
 
@@ -169,15 +170,16 @@
 </footer>
 
 <script>
-const W=1160,H=720;
+const W=1160,H=830;
 const PY=[138,208,278], RY=[425,475,525], CY=[150,300,450];
 const GRP={A:0,B:1,C:2};
 const slotM=(p,k)=>({x:740-k*62,y:PY[p]});
 const slotR=(p,k)=>({x:740-k*62,y:RY[p]});
 const consPos=i=>({x:1005,y:CY[i]+4});
 const PROD={x:115,y:250};
-const dlqSlot=k=>({x:330+k*62,y:665});
-const OPER={x:770,y:672};
+const DY=[652,705,758];
+const dlqSlot=(p,k)=>({x:740-k*62,y:DY[p]});
+const OPER={x:115,y:725};
 
 /* ---------- Décor statique ---------- */
 const boxes=document.getElementById('boxes');
@@ -188,8 +190,8 @@ const leg=document.createElement('div');leg.className='legend';leg.innerHTML='<i
 
 box('topic-main',245,70,555,245,'<div class="ttl">Topic principal <small>commandes.groupes · 3 partitions</small></div>');
 box('topic-rep',245,345,555,215,'<div class="ttl" style="color:#c4b5fd">Topic de reprise <small>même structure : 3 partitions · consommé en priorité</small></div>');
-box('topic-dlq',245,600,395,110,'<div class="ttl" style="color:#fca5a5">Topic DLQ <small>dead letter queue</small></div>');
-box('op',680,600,180,110,'<div class="ttl" style="color:#86efac">👤 Utilisateur / support</div><div style="position:absolute;left:14px;top:30px;font-size:10.5px;color:var(--mut)">analyse · corrige · republie</div>');
+box('topic-dlq',245,590,555,200,'<div class="ttl" style="color:#fca5a5">Topic DLQ <small>même structure : 3 partitions · copie dans la partition d\'origine</small></div>');
+box('op',25,640,180,150,'<div class="ttl" style="color:#86efac">👤 Utilisateur / support</div><div style="position:absolute;left:14px;top:30px;font-size:10.5px;color:var(--mut)">analyse · corrige · republie</div>');
 const reg=box('reg',905,580,200,130,'<div class="ttl" style="color:#e5e7b0">🗄️ Registre « déjà traités »</div><ul id="regl"></ul>');
 box('cg',905,45,200,515,'<div class="ttl" style="color:#93c5fd">Groupe de consommateurs</div><div style="position:absolute;left:14px;top:27px;font-size:10px;color:var(--mut)">ordre de poll : ① reprise ② principal</div>');
 
@@ -197,6 +199,7 @@ const lanes={};
 function lane(id,x,y,w,h,label,grp){const d=document.createElement('div');d.className='lane';Object.assign(d.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});d.innerHTML=`<span class="pl">${label}</span><span class="grp">${grp||''}</span><span class="badge"></span>`;boxes.appendChild(d);lanes[id]=d;}
 ['A','B','C'].forEach((g,i)=>lane('P'+i,300,PY[i]-24,490,48,'P'+i,'groupe '+g));
 ['A','B','C'].forEach((g,i)=>lane('R'+i,300,RY[i]-20,490,40,'R'+i,''));
+[0,1,2].forEach(i=>lane('D'+i,300,DY[i]-21,490,42,'D'+i,''));
 const consEl=[];
 for(let i=0;i<3;i++){const d=document.createElement('div');d.className='cons';d.style.left='925px';d.style.top=(CY[i]-60)+'px';d.innerHTML=`<div class="nm">C${i+1}</div><div class="as">P${i} + R${i}</div><div class="stt"></div><div class="log"></div>`;boxes.appendChild(d);consEl.push(d);}
 
@@ -208,17 +211,17 @@ const edgeDefs=[
   ['e-prod2','M205 250 C 250 250, 260 '+PY[2]+', 300 '+PY[2],''],
   ...[0,1,2].map(i=>['e-mc'+i,`M790 ${PY[i]} C 860 ${PY[i]}, 870 ${CY[i]-25}, 925 ${CY[i]-25}`,'']),
   ...[0,1,2].map(i=>['e-rc'+i,`M790 ${RY[i]} C 860 ${RY[i]}, 870 ${CY[i]+25}, 925 ${CY[i]+25}`,'rep']),
-  ['e-dlq','M300 232 C 230 300, 215 560, 300 640','dlq'],
-  ['e-op','M640 660 L 680 660','dlq'],
-  ['e-rep','M770 600 C 770 580, 700 570, 640 '+(RY[1]+20),'fix'],
+  ['e-dlq','M300 '+PY[1]+' C 228 260, 228 640, 296 '+DY[1],'dlq'],
+  ['e-op','M245 745 L 207 745','dlq'],
+  ['e-rep','M150 640 C 160 560, 240 '+RY[1]+', 296 '+RY[1],'fix'],
   ['e-reg','M1005 560 L 1005 580',''],
 ];
 let svgh='<defs>';
 ['#3a4250','#58a6ff'].forEach((c,i)=>svgh+=`<marker id="m${i}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="${c}"/></marker>`);
 svgh+='</defs>';
 edgeDefs.forEach(([id,d,c])=>svgh+=`<path id="${id}" class="edge ${c}" d="${d}" marker-end="url(#m0)"/>`);
-svgh+=`<text class="elabel" x="226" y="470" transform="rotate(-82 226 470)" fill="#f87171">copie en erreur → DLQ</text>`;
-svgh+=`<text class="elabel" x="650" y="580" fill="#86efac">republie dans la même partition</text>`;
+svgh+=`<text class="elabel" x="222" y="600" transform="rotate(-86 222 600)" fill="#f87171">copie P1 → D1 (même partition)</text>`;
+svgh+=`<text class="elabel" x="30" y="630" fill="#86efac">republie D1 → R1 (même n°)</text>`;
 svgh+=`<text class="elabel" x="812" y="${RY[0]-12}" fill="#a78bfa">priorité ①</text>`;
 svgh+=`<text class="elabel" x="812" y="${PY[2]+30}">priorité ②</text>`;
 svg.innerHTML=svgh;
@@ -237,7 +240,7 @@ const HLC=['e-mc0','e-mc1','e-mc2'];
 
 /* ---------- Scénario ---------- */
 const steps=[
-{scene:1,title:'Architecture',text:`Un producteur publie dans le <b>topic principal</b> (3 partitions). Le <b>groupe de consommateurs</b> a 3 instances qui se partagent les partitions : Kafka garantit qu'une partition n'est lue que par <b>une seule instance</b> du groupe, donc l'ordre est préservé dans chaque partition. Chaque instance C<i>n</i> est aussi assignée à la même partition du <b>topic de reprise</b> (P1 ↔ R1, etc.).`,
+{scene:1,title:'Architecture',text:`Un producteur publie dans le <b>topic principal</b> (3 partitions). Le <b>groupe de consommateurs</b> a 3 instances qui se partagent les partitions : Kafka garantit qu'une partition n'est lue que par <b>une seule instance</b> du groupe, donc l'ordre est préservé dans chaque partition. Chaque instance C<i>n</i> est aussi assignée à la même partition du <b>topic de reprise</b> (P1 ↔ R1, etc.). Le <b>topic DLQ</b> a lui aussi 3 partitions (D0, D1, D2), qui correspondent aux partitions d'origine.`,
  run(m){m.hl=['e-mc0','e-mc1','e-mc2','e-rc0','e-rc1','e-rc2'];}},
 {scene:1,title:'Solution ① : chaque groupe est routé vers une partition dédiée',text:`La clé du message est l'identifiant du groupe : <code>partition = hash(groupId) % 3</code>. Tous les messages du groupe A vont dans P0, ceux du groupe B dans P1 et ceux du groupe C dans P2, dans l'ordre d'envoi. Avec une partition par groupe, on peut avoir <b>autant de groupes que de partitions</b>.`,
  run(m){m.hash=true;m.hl=['e-prod0','e-prod1','e-prod2'];let i=0;for(let n=1;n<=4;n++)for(const g of 'ABC'){const t=m.t[g+n];Object.assign(t,{x:t.home.x,y:t.home.y,op:1,delay:i++*0.18});}}},
@@ -247,13 +250,13 @@ const steps=[
  run(m){m.hl=HLC;done(m,'A1',0);done(m,'B1',1);done(m,'C1',2);consume(m,'A2',0,.3);consume(m,'B2',1,.3);consume(m,'C2',2,.3);m.t.B2.st='err';m.cons[1].st='err';m.cons[1].txt='❌ Échec du traitement de B2';}},
 {scene:2,title:'La partition P1 est suspendue, B2 reste bloqué',text:`P1 est marquée <b>en erreur / suspendue</b> (<code>consumer.pause(P1)</code>). B2 reste à sa position : son offset <b>n'est pas commité</b>, et B3 et B4 attendent derrière lui. Les autres partitions continuent : <b>seul le groupe B est bloqué</b>.`,
  run(m){m.hl=['e-mc0','e-mc2'];const b=m.t.B2;b.x=b.home.x;b.y=b.home.y;m.lanes.P1='susp';m.cons[1].st='susp';m.cons[1].txt='⏸ P1 suspendue · offset non commité';done(m,'A2',0);done(m,'C2',2);consume(m,'A3',0,.4);consume(m,'C3',2,.4);}},
-{scene:2,title:'Une copie de B2 est déposée dans la DLQ',text:`On publie une <b>copie</b> de B2 dans le topic DLQ avec ses métadonnées : <code>partition d'origine = 1</code>, <code>offset = 1</code>, cause de l'erreur. L'original reste bloqué dans P1.`,
- run(m){m.hl=['e-dlq'];const c=m.t.B2c;const p=dlqSlot(0);Object.assign(c,{x:p.x,y:p.y,op:1,sub:'p=1 · offset=1'});done(m,'A3',0);done(m,'C3',2);consume(m,'A4',0,.4);consume(m,'C4',2,.4);}},
+{scene:2,title:'Une copie de B2 est déposée dans la DLQ, partition D1',text:`Une <b>copie</b> de B2 est publiée dans le topic DLQ, <b>dans la même partition que l\'origine : D1</b> (<code>partition = 1</code>). La DLQ a la même structure que le topic principal (3 partitions). On garde aussi l\'offset d\'origine et la cause de l\'erreur. L'original reste bloqué dans P1.`,
+ run(m){m.hl=['e-dlq'];const c=m.t.B2c;const p=dlqSlot(1,0);m.lanes.D1='dlq';Object.assign(c,{x:p.x,y:p.y,op:1,sub:'origine P1 · offset 1'});done(m,'A3',0);done(m,'C3',2);consume(m,'A4',0,.4);consume(m,'C4',2,.4);}},
 {scene:2,title:'Un utilisateur prend le message et le corrige',text:`Un utilisateur (support ou métier) récupère B2 dans la DLQ, analyse l'erreur et corrige le contenu. Pendant ce temps, les groupes A et C ont terminé.`,
- run(m){m.hl=['e-op'];const c=m.t.B2c;Object.assign(c,{x:OPER.x,y:OPER.y,st:'fixing',sub:'🔧 correction…'});done(m,'A4',0);done(m,'C4',2);m.cons[0].st='ok';m.cons[0].txt='✓ P0 à jour';m.cons[2].st='ok';m.cons[2].txt='✓ P2 à jour';}},
+ run(m){m.hl=['e-op'];const c=m.t.B2c;m.lanes.D1='';Object.assign(c,{x:OPER.x,y:OPER.y,st:'fixing',sub:'🔧 lu depuis D1'});done(m,'A4',0);done(m,'C4',2);m.cons[0].st='ok';m.cons[0].txt='✓ P0 à jour';m.cons[2].st='ok';m.cons[2].txt='✓ P2 à jour';}},
 {scene:2,title:'Message corrigé : B2′',text:`Le message corrigé <b>B2′</b> garde le <b>même identifiant fonctionnel</b> que B2 (même clé de groupe et même id de message). C'est ce qui permettra ensuite de reconnaître l'original comme déjà traité.`,
  run(m){m.hl=[];const c=m.t.B2c;Object.assign(c,{label:'B2′',st:'fixed',sub:'✓ corrigé'});}},
-{scene:2,title:'Republication dans le topic de reprise, même partition (R1)',text:`L'utilisateur republie B2′ dans le <b>topic de reprise</b>, en forçant la <b>même partition</b> que l'origine : <code>partition = 1</code> (lue dans les métadonnées de la DLQ). Comme le topic de reprise a la même structure que le topic principal, c'est la même instance C2 qui le lira.`,
+{scene:2,title:'Republication dans le topic de reprise, même partition (R1)',text:`L'utilisateur republie B2′ dans le <b>topic de reprise</b>, dans la <b>même partition : R1</b>. Le numéro vient directement de la partition DLQ d'où il a lu le message (<b>D1 → R1</b>). Les trois topics ont la même structure (<b>P1 = D1 = R1</b>), donc c'est la même instance C2 qui le lira.`,
  run(m){m.hl=['e-rep'];m.lanes.R1='hl';const c=m.t.B2c;const p=slotR(1,0);Object.assign(c,{x:p.x,y:p.y,sub:'',home:p});}},
 {scene:2,title:'Le topic de reprise est consommé en priorité',text:`À chaque cycle, l'instance lit <b>d'abord le topic de reprise</b>, puis le topic principal. C2 trouve B2′ dans R1 et le traite avec succès.`,
  run(m){m.hl=['e-rc1'];consume(m,'B2c',1);m.cons[1].st='rep';m.cons[1].txt='① Poll R1 prioritaire → B2′';}},

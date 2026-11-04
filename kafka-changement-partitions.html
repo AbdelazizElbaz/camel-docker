@@ -20,9 +20,9 @@
   .tab{background:var(--panel);border:1px solid var(--line);color:var(--mut);padding:6px 12px;border-radius:999px;cursor:pointer;font-size:13px}
   .tab.on{color:var(--txt);border-color:#58a6ff;background:#1f2a3a}
   #wrap{flex:1 1 auto;position:relative;overflow:hidden}
-  #stage{position:absolute;left:0;top:0;width:1160px;height:720px;transform-origin:0 0}
+  #stage{position:absolute;left:0;top:0;width:1160px;height:830px;transform-origin:0 0}
   #stage.noanim *{transition:none!important}
-  svg#edges{position:absolute;inset:0;width:1160px;height:720px;overflow:visible;pointer-events:none}
+  svg#edges{position:absolute;inset:0;width:1160px;height:830px;overflow:visible;pointer-events:none}
   .box{position:absolute;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
   .box .ttl{position:absolute;left:14px;top:8px;font-size:13px;font-weight:600}
   .box .ttl small{color:var(--mut);font-weight:400;margin-left:6px}
@@ -84,6 +84,16 @@
   .tok.st-bad{border:2px solid #fff;box-shadow:0 0 0 4px rgba(239,68,68,.5),0 0 22px rgba(239,68,68,.8)}
   .tok .sub{position:absolute;top:36px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:9.5px;font-weight:700;color:#fca5a5}
   .tok .ico{position:absolute;right:-10px;top:-10px;font-size:15px}
+  .tok.st-copy{background:#7f1d1d!important;border:2px dashed #fca5a5}
+  .side{border-color:#4c3f7a;background:linear-gradient(180deg,#1a1730,#151324)}
+  .side.dlqb{border-color:#6b2c2c;background:linear-gradient(180deg,#2a1515,#1d1212)}
+  .side .sst{position:absolute;left:14px;top:32px;width:118px;font-size:11px;line-height:1.4;color:var(--mut)}
+  .side .sst.warn{color:#fca5a5;font-weight:600} .side .sst.good{color:#86efac;font-weight:600}
+  .cell{position:absolute;top:30px;width:64px;height:42px;border-radius:7px;border:1px dashed #3a4250;background:#0f141b;font-size:11px;font-weight:700;color:var(--mut);display:flex;align-items:flex-start;justify-content:flex-start;padding:2px 5px;transition:opacity .5s,border-color .5s}
+  .cell.hide{opacity:0}
+  .cell.miss{opacity:1;border:1px dashed var(--err);background:rgba(239,68,68,.08);color:#fca5a5}
+  .cell.miss::after{content:"absente";position:absolute;bottom:3px;left:6px;font-size:9.5px;font-weight:600}
+  .cell.new{border:1px solid var(--new)}
   @keyframes pop{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:none}}
   .ghost{position:absolute;width:52px;height:34px;border-radius:8px;border:1.5px dashed;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;opacity:.4;animation:pop .6s}
   .ghost.g-A{border-color:var(--A);color:var(--A)} .ghost.g-B{border-color:var(--B);color:var(--B)} .ghost.g-C{border-color:var(--C);color:var(--C)} .ghost.g-D{border-color:var(--D);color:var(--D)} .ghost.g-E{border-color:var(--E);color:var(--E)} .ghost.g-F{border-color:var(--F);color:var(--F)}
@@ -139,7 +149,7 @@
           <li>Kafka <b>ne déplace pas</b> les messages déjà écrits. Les anciens messages d'un groupe restent dans l'ancienne partition, les nouveaux vont dans la nouvelle.</li>
           <li>Deux partitions sont lues en parallèle, donc les nouveaux messages peuvent passer <b>avant</b> les anciens (B3 avant B2, D3 avant D2, E3 avant E2).</li>
           <li>Un groupe peut arriver dans une partition suspendue et se retrouver bloqué par l'erreur d'un autre groupe (le groupe C).</li>
-          <li>Le topic de reprise doit être agrandi en même temps. Les numéros de partition notés dans la DLQ correspondent à l'ancien calcul.</li>
+          <li>La DLQ et le topic de reprise doivent être agrandis <b>en même temps</b> : un message en erreur est copié dans la même partition DLQ, puis republié dans la même partition de reprise.</li>
           <li>On peut ajouter des partitions, jamais en retirer.</li>
         </ul>
       </div>
@@ -147,7 +157,7 @@
         <h3 style="color:#86efac">Les solutions</h3>
         <ol>
           <li><b>Prévoir large dès le départ</b> (12, 24, 60 partitions) et ajouter des <b>instances de consommateurs</b> au lieu de partitions. Le routage ne change jamais.</li>
-          <li><b>Vider avant d'agrandir</b> : mettre les producteurs en pause, vider le topic principal, le topic de reprise et la DLQ, agrandir les deux topics, puis reprendre.</li>
+          <li><b>Vider avant d'agrandir</b> : mettre les producteurs en pause, vider le topic principal, le topic de reprise et la DLQ, agrandir les trois topics, puis reprendre.</li>
           <li><b>Créer un nouveau topic</b> avec N partitions : finir l'ancien topic avant de lire le nouveau.</li>
           <li><b>Utiliser des paniers fixes</b> : <code>panier = hash(clé) % 1024</code> ne change jamais, et une table indique la partition de chaque panier. On déplace les paniers un par un, après les avoir vidés.</li>
         </ol>
@@ -172,7 +182,7 @@
 </footer>
 
 <script>
-const W=1160,H=720;
+const W=1160,H=830;
 const PY=[105,170,235,300,365], CY=[125,255,385];
 const slot=(p,k)=>({x:740-k*62,y:PY[p]});
 const consPos=i=>({x:1005,y:CY[i]+2});
@@ -192,6 +202,12 @@ box('cg',905,40,200,420,'<div class="ttl" style="color:#93c5fd">Groupe de consom
 let rows='';for(const g of 'ABCDEF'){const mv=p3(g)!==p5(g);rows+=`<tr class="${mv?'mv':'st'}"><td><span class="dot" style="background:var(--${g})"></span>${g}</td><td>${HASH[g]}</td><td>P${p3(g)}</td><td class="c5">P${p5(g)}</td><td class="c5 eff">${mv?'⚠ déplacé P'+p3(g)+' → P'+p5(g):'✓ inchangé'}</td></tr>`;}
 box('rtbox',25,475,500,235,`<div class="ttl">Table de routage <small>hash simplifié pour l'exemple</small></div><table class="rt" id="rt"><tr><th>Groupe</th><th>hash(clé)</th><th>% 3</th><th class="c5">% 5</th><th class="c5">Effet</th></tr>${rows}</table>`);
 box('ordbox',545,475,560,235,'<div class="ttl">Ordre de traitement réel par groupe</div><div class="ord" id="ord"></div>');
+const sideBoxes={};
+[['rep','Topic de reprise','',25],['dlq','Topic DLQ','dlqb',575]].forEach(([k,t,c,x])=>{
+  let cells='';for(let i=0;i<5;i++)cells+=`<div class="cell" data-i="${i}" style="left:${130+i*72}px">${k==='rep'?'R':'D'}${i}</div>`;
+  sideBoxes[k]=box('side '+c,x,725,530,95,`<div class="ttl" style="color:${k==='rep'?'#c4b5fd':'#fca5a5'}">${t}</div><div class="sst"></div>${cells}`);
+});
+const dlqCell=p=>({x:575+130+p*72+32,y:725+30+21});
 
 const lanes={};
 for(let i=0;i<5;i++){const d=document.createElement('div');d.className='lane';Object.assign(d.style,{left:'300px',top:(PY[i]-23)+'px',width:'490px',height:'46px'});d.innerHTML=`<span class="pl">P${i}</span><span class="badge"></span><span class="asg"></span>`;boxes.appendChild(d);lanes['P'+i]=d;}
@@ -207,7 +223,8 @@ function fresh(){
   PHASE1.forEach((l,p)=>l.forEach((id,k)=>t[id]={id,g:id[0],label:id,x:PROD.x,y:PROD.y,op:0,st:'',home:slot(p,k)}));
   const cnt=[4,4,4,0,0];
   for(const id of NEW){const g=id[0];const p=p5(g);const k=cnt[p]++;const mv=p3(g)!==p;t[id]={id,g,label:id,x:PROD.x,y:PROD.y,op:0,st:'',home:slot(p,k),sub:mv?'avant : P'+p3(g):''};}
-  return {t,np:3,mod5:false,banner:false,paused:false,
+  const h=slot(1,2);t.B2c={id:'B2c',g:'B',label:'B2',x:h.x,y:h.y,op:0,st:'copy',home:h};
+  return {t,np:3,mod5:false,banner:false,paused:false,sideN:3,sideWarn:false,
     assign:{P0:'C1',P1:'C2',P2:'C3'},
     cons:[0,1,2].map(i=>({st:'',txt:'En attente',as:'P'+i})),
     lanes:{},ghosts:[],order:{A:[],B:[],C:[],D:[],E:[],F:[]},proc:{A:[],B:[],C:[],D:[],E:[],F:[]},summary:false};
@@ -241,10 +258,10 @@ const steps=[
  run(m){done(m,'A1',0);done(m,'B1',1);done(m,'C1',2);consume(m,'D1',0,.3);consume(m,'E1',1,.3);consume(m,'F1',2,.3);}},
 {scene:1,title:'Erreur sur B2',text:`C2 échoue sur <b>B2</b>. Comme dans le mécanisme DLQ + reprise, la partition P1 va être suspendue en attendant la correction.`,
  run(m){done(m,'D1',0);done(m,'E1',1);done(m,'F1',2);consume(m,'A2',0,.3);consume(m,'B2',1,.3);consume(m,'C2',2,.3);m.t.B2.st='err';m.cons[1].st='err';m.cons[1].txt='❌ Échec de B2';}},
-{scene:1,title:'Il reste des messages en attente',text:`P1 est suspendue : B2 est en erreur et E2 est bloqué derrière lui. Dans P0 et P2, D2 et F2 n'ont pas encore été lus. <b>Il y a presque toujours des messages en attente</b>, par simple retard des consommateurs ou à cause d'une partition suspendue.`,
- run(m){const b=m.t.B2;b.x=b.home.x;b.y=b.home.y;m.lanes.P1='susp';m.t.E2.st='blocked';m.cons[1].st='err';m.cons[1].txt='⏸ P1 suspendue (B2 en erreur)';done(m,'A2',0);done(m,'C2',2);}},
-{scene:2,title:'On passe de 3 à 5 partitions',text:`L'administrateur exécute <code>kafka-topics --alter --partitions 5</code>. <b>Le code du producteur ne change pas</b>, mais N vaut maintenant 5, donc <code>hash % 5</code> donne un autre résultat : <b>4 groupes sur 6 changent de partition</b> (en rouge dans la table). Kafka <b>ne déplace pas</b> les messages déjà écrits. Les consommateurs se rééquilibrent : C1 lit P0 et P3, C2 lit P1 et P4.`,
- run(m){alter(m);}},
+{scene:1,title:'Il reste des messages en attente',text:`P1 est suspendue : B2 est en erreur et E2 est bloqué derrière lui. Une copie de B2 est déposée dans la DLQ, <b>dans la même partition d'origine : D1</b>. Dans P0 et P2, D2 et F2 n'ont pas encore été lus. <b>Il y a presque toujours des messages en attente</b>, par simple retard des consommateurs ou à cause d'une partition suspendue.`,
+ run(m){const b=m.t.B2;b.x=b.home.x;b.y=b.home.y;m.lanes.P1='susp';m.t.E2.st='blocked';m.cons[1].st='err';m.cons[1].txt='⏸ P1 suspendue (B2 en erreur)';done(m,'A2',0);done(m,'C2',2);const c=m.t.B2c,d=dlqCell(1);Object.assign(c,{x:d.x,y:d.y,op:1,delay:.4});}},
+{scene:2,title:'On passe de 3 à 5 partitions',text:`L'administrateur exécute <code>kafka-topics --alter --partitions 5</code>. <b>Le code du producteur ne change pas</b>, mais N vaut maintenant 5, donc <code>hash % 5</code> donne un autre résultat : <b>4 groupes sur 6 changent de partition</b> (en rouge dans la table). Kafka <b>ne déplace pas</b> les messages déjà écrits. Les consommateurs se rééquilibrent : C1 lit P0 et P3, C2 lit P1 et P4. ⚠ Le topic de reprise et la DLQ sont restés à <b>3 partitions</b> : P3 et P4 n'ont pas d'équivalent R3/R4 ni D3/D4.`,
+ run(m){alter(m);m.sideWarn=true;}},
 {scene:2,title:'Les nouveaux messages partent ailleurs',text:`A3 et F3 restent dans leur partition. Mais <b>B3 part dans P2</b> alors que B2 est toujours bloqué dans P1. <b>D3 part dans P4</b>, alors que D2 attend dans P0. <b>E3 part dans P3</b> et <b>C3 arrive dans P1</b>, la partition suspendue.`,
  run(m){produceNew(m);m.t.C3.st='blocked';}},
 {scene:2,title:'Lecture en parallèle : l\'ordre n\'est plus garanti',text:`C1 lit la nouvelle partition P3 et traite <b>E3 avant E2</b>, qui est encore bloqué. C2 ne peut pas lire P1 (suspendue) et traite donc P4 : <b>D3 passe avant D2</b>, qui attend toujours dans P0.`,
@@ -253,16 +270,16 @@ const steps=[
  run(m){done(m,'E3',0);done(m,'D3',1);done(m,'F2',2);m.cons[0].st='bad';m.cons[0].txt='⚠ E3 traité avant E2';m.cons[1].st='bad';m.cons[1].txt='⚠ D3 traité avant D2';consume(m,'B3',2,.3,'Lit P2 → B3');consume(m,'D2',0,.3,'Lit P0 → D2 (après D3 !)');m.cons[0].st='bad';}},
 {scene:2,title:'Le groupe C est maintenant bloqué par l\'erreur du groupe B',text:`B3 est traité hors ordre ⚠. Autre effet : C3 a été routé vers P1, la partition suspendue, donc <b>le groupe C est bloqué par une erreur du groupe B</b>. Seuls les groupes A et F, qui n'ont pas bougé, restent corrects.`,
  run(m){done(m,'B3',2);done(m,'D2',0);m.cons[2].st='bad';m.cons[2].txt='⚠ B3 traité avant B2';consume(m,'F3',2,.3);consume(m,'A3',0,.3);}},
-{scene:2,title:'Bilan : le changement de N a cassé l\'ordre',text:`Quand N change, le résultat de <code>hash % N</code> change. Les anciens messages restent dans l'ancienne partition et les nouveaux vont dans une autre, lue en parallèle. Même effet sur le mécanisme de reprise : la DLQ indique <code>partition = 1</code> pour B2, ce qui correspondait à l'ancien calcul, et le topic de reprise doit aussi passer à 5 partitions.`,
+{scene:2,title:'Bilan : le changement de N a cassé l\'ordre',text:`Quand N change, le résultat de <code>hash % N</code> change. Les anciens messages restent dans l'ancienne partition et les nouveaux vont dans une autre, lue en parallèle. Même effet sur le mécanisme de reprise : la DLQ indique <code>partition = 1</code> pour B2, ce qui correspondait à l'ancien calcul. Et un message en erreur dans P3 ou P4 ne pourrait aller ni dans la DLQ ni dans le topic de reprise : <b>les trois topics doivent toujours avoir le même nombre de partitions</b>.`,
  run(m){done(m,'F3',2);done(m,'A3',0);m.cons[0].st='bad';m.cons[0].txt='⚠ ordre cassé pour D et E';m.cons[1].st='err';m.cons[1].txt='⏸ P1 bloquée : B2, E2, C3';m.cons[2].st='bad';m.cons[2].txt='⚠ ordre cassé pour B';}},
 {scene:3,title:'Procédure sûre : on recommence avant l\'agrandissement',text:`On revient au même état, avec 3 partitions et des messages en attente. Cette fois, on <b>met d'abord les producteurs en pause</b> : plus aucun nouveau message n'arrive.`,
  run(m){resetTo(m,5);m.paused=true;}},
-{scene:3,title:'Vider : corriger et consommer tout ce qui reste',text:`B2 est corrigé grâce au mécanisme DLQ + reprise et traité sous le nom <b>B2′</b>. D2 et F2 sont consommés. Le topic de reprise et la DLQ doivent aussi être vides.`,
- run(m){const b=m.t.B2;b.label='B2′';b.st='fixed';m.lanes.P1='';m.t.E2.st='blocked';consume(m,'B2',1);consume(m,'D2',0);consume(m,'F2',2);}},
+{scene:3,title:'Vider : corriger et consommer tout ce qui reste',text:`B2 est lu dans la DLQ (D1), corrigé, puis traité sous le nom <b>B2′</b> via le topic de reprise (R1). D2 et F2 sont consommés. Le topic de reprise et la DLQ doivent aussi être <b>vides</b> avant d'agrandir.`,
+ run(m){m.t.B2c.op=0;const b=m.t.B2;b.label='B2′';b.st='fixed';m.lanes.P1='';m.t.E2.st='blocked';consume(m,'B2',1);consume(m,'D2',0);consume(m,'F2',2);}},
 {scene:3,title:'Le dernier message en attente est traité',text:`P1 est débloquée et E2 est traité. Il ne reste plus rien en attente.`,
  run(m){done(m,'B2',1);done(m,'D2',0);done(m,'F2',2);m.t.E2.st='';consume(m,'E2',1);}},
-{scene:3,title:'Topics vides → on agrandit à 5 partitions',text:`Toutes les partitions sont vides et chaque groupe est entièrement traité. On peut maintenant passer à <b>5 partitions</b>, sur le topic principal <b>et</b> sur le topic de reprise. Les groupes changent de partition, mais <b>aucun ancien message ne les attend ailleurs</b>.`,
- run(m){done(m,'E2',1);for(let i=0;i<3;i++)m.lanes['P'+i]='empty';alter(m);m.cons.forEach(c=>{c.st='ok';c.txt='✓ partitions vides';});}},
+{scene:3,title:'Topics vides → on agrandit à 5 partitions',text:`Toutes les partitions sont vides et chaque groupe est entièrement traité. On peut maintenant passer à <b>5 partitions</b> sur les <b>trois topics</b> : principal, reprise et DLQ (voir en bas). Les groupes changent de partition, mais <b>aucun ancien message ne les attend ailleurs</b>.`,
+ run(m){done(m,'E2',1);for(let i=0;i<3;i++)m.lanes['P'+i]='empty';alter(m);m.sideN=5;m.cons.forEach(c=>{c.st='ok';c.txt='✓ partitions vides';});}},
 {scene:3,title:'Reprise de la production',text:`Les producteurs repartent. B3 va dans P2, D3 dans P4 et E3 dans P3, mais B2, D2 et E2 sont <b>déjà traités</b>. Il n'y a plus de conflit possible.`,
  run(m){m.paused=false;m.banner=false;for(let i=0;i<5;i++)m.lanes['P'+i]=i>2?'new':'';produceNew(m);m.cons.forEach(c=>{c.st='';c.txt='En attente';});}},
 {scene:3,title:'Consommation : tout est dans l\'ordre',text:`A3, C3 et B3 sont consommés. Chaque groupe reprend juste après son dernier message traité.`,
@@ -300,6 +317,12 @@ function render(m){
   prod.classList.toggle('paused',m.paused);
   document.getElementById('ord').innerHTML='ABCDEF'.split('').map(g=>{const o=m.order[g];const ko=o.some(x=>x.bad);
     return `<div><span class="g" style="color:var(--${g})">${g}</span><span class="seq">${o.map(x=>`<span class="${x.bad?'bad':''}">${x.l}${x.bad?' ⚠':''}</span>`).join('<i>→</i>')||'<i>—</i>'}</span><span class="res ${ko?'ko':o.length?'okk':''}">${ko?'⚠ ordre cassé':o.length?'✓ FIFO':''}</span></div>`;}).join('');
+  for(const k of ['rep','dlq']){const b=sideBoxes[k];
+    b.querySelectorAll('.cell').forEach(c=>{const i=+c.dataset.i;c.className='cell'+(i<3?'':m.sideN>=5?(m.np===5&&m.lanes['P'+i]==='new'?' new':''):(m.np===5&&m.sideWarn?' miss':' hide'));});
+    const st=b.querySelector('.sst');
+    if(m.sideN>=5){st.className='sst good';st.textContent='✓ 5 partitions, comme le topic principal';}
+    else if(m.np===5&&m.sideWarn){st.className='sst warn';st.textContent='⚠ toujours 3 partitions (≠ 5)';}
+    else{st.className='sst';st.textContent='3 partitions, même structure que le topic principal';}}
   document.getElementById('summary').classList.toggle('on',m.summary);
 }
 
